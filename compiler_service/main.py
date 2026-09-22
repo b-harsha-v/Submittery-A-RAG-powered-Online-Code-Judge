@@ -81,6 +81,10 @@ def execute_code(req: ExecutionRequest):
     if temp_parent and not os.path.exists(temp_parent):
         os.makedirs(temp_parent, exist_ok=True)
     temp_dir = tempfile.mkdtemp(prefix="submittery_run_", dir=temp_parent)
+    try:
+        os.chmod(temp_dir, 0o755)
+    except Exception:
+        pass
     
     try:
         # 2. Write code to file
@@ -88,6 +92,10 @@ def execute_code(req: ExecutionRequest):
         code_path_host = os.path.join(temp_dir, code_filename)
         with open(code_path_host, "w", encoding="utf-8") as f:
             f.write(req.code)
+        try:
+            os.chmod(code_path_host, 0o644)
+        except Exception:
+            pass
             
         # 3. Create runner configuration JSON
         config_data = {
@@ -108,6 +116,10 @@ def execute_code(req: ExecutionRequest):
         config_path_host = os.path.join(temp_dir, config_filename)
         with open(config_path_host, "w", encoding="utf-8") as f:
             json.dump(config_data, f)
+        try:
+            os.chmod(config_path_host, 0o644)
+        except Exception:
+            pass
             
         # 4. Prepare mounts (mounting host temp_dir as read-only /workspace)
         # On Windows Docker Desktop, we must convert windows paths to absolute paths
