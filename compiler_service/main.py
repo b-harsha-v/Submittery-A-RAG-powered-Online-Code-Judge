@@ -77,7 +77,10 @@ def execute_code(req: ExecutionRequest):
         )
 
     # 1. Create a host temporary directory
-    temp_dir = tempfile.mkdtemp(prefix="submittery_run_")
+    temp_parent = os.getenv("SANDBOX_TEMP_DIR", None)
+    if temp_parent and not os.path.exists(temp_parent):
+        os.makedirs(temp_parent, exist_ok=True)
+    temp_dir = tempfile.mkdtemp(prefix="submittery_run_", dir=temp_parent)
     
     try:
         # 2. Write code to file

@@ -15,6 +15,7 @@ from backend.app.config import settings
 from backend.app.models.submission import Submission, SubmissionStatus
 from backend.app.models.problem import Problem, TestCase
 from backend.app.services.queue_service import queue_service
+from backend.app.services.rag_service import rag_service
 
 def process_submission(submission_id: str):
     db: Session = SessionLocal()
@@ -136,6 +137,26 @@ def process_submission(submission_id: str):
             results=results
         )
         print(f"[+] Submission {submission_id} finished processing. Verdict: {overall_status.value}")
+
+        # 9. Asynchronously harvest failure pattern into RAG memory if not accepted
+        if overall_status not in [SubmissionStatus.AC, SubmissionStatus.INTERNAL_ERROR, SubmissionStatus.CE]:
+            try:
+                failed_tc_input = None
+                for tc_res in (results or []):
+                    if tc_res.get("status") != "accepted":
+                        failed_tc_input = tc_res.get("input")
+                        break
+                
+                rag_service.harvest_failure_pitfall(
+                    db=db,
+                    problem_id=submission.problem_id,
+                    verdict=overall_status.value,
+                    code=submission.code,
+                    error_detail=submission.error_message,
+                    failed_test_input=failed_tc_input
+                )
+            except Exception as harvest_err:
+                print(f"[*] Note: Non-critical failure in RAG pitfall harvesting: {harvest_err}")
         
     except Exception as e:
         print(f"[!] Error processing submission {submission_id}: {str(e)}")

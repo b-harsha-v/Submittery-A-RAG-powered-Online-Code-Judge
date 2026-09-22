@@ -29,8 +29,17 @@ async def startup_event():
     try:
         print("[*] Ensuring database tables are created...")
         Base.metadata.create_all(bind=engine)
+        
+        # Initialize RAG pgvector tables and embed-once knowledge base
+        from .services.rag_service import rag_service
+        from .database import SessionLocal
+        db = SessionLocal()
+        try:
+            rag_service.seed_problem_knowledge_if_needed(db)
+        finally:
+            db.close()
     except Exception as e:
-        print(f"[!] Error auto-creating database tables: {e}")
+        print(f"[!] Error auto-creating database tables / RAG: {e}")
         
     await websocket_manager.start_redis_listener()
 

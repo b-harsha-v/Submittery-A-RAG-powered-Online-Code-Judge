@@ -1,197 +1,306 @@
-# 🚀 Submittery — An AI-Powered Online Judge & Collaborative Coding Platform
+# 🚀 Submittery: A RAG-Powered AI Online Judge & Pair-Programming Platform
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688.svg)](https://fastapi.tiangolo.com)
-[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED.svg)](https://www.docker.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![Submittery Banner](https://img.shields.io/badge/Submittery-v5.0-6366f1?style=for-the-badge&logo=codeforces&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.110.0-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL_15-pgvector-336791?style=for-the-badge&logo=postgresql&logoColor=white)
+![Google Gemini](https://img.shields.io/badge/Google_Gemini-Flash_%26_Embeddings-4285F4?style=for-the-badge&logo=google&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Sandbox_Isolation-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-EC2_%26_CI%2FCD-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white)
 
-**Submittery** is a modern, distributed, full-stack AI Online Judge and real-time collaborative pair-programming platform. It combines asynchronous code execution in an isolated sandbox with Google Gemini AI mentorship, real-time WebSocket pair programming with live multi-cursor syncing, and an administrative problem management suite.
+> **Submittery** is a next-generation competitive programming judge and collaborative coding platform. Unlike traditional static judges that only return raw verdicts, Submittery integrates an **asynchronous, continuous-learning Retrieval-Augmented Generation (RAG)** knowledge engine grounded in PostgreSQL (`pgvector`) and Google Gemini. It dynamically harvests community failure patterns, provides tiered Socratic hints without spoiling solutions, and conducts deep code-aware failure diagnostics in real time.
 
 ---
 
-## 📸 Key Highlights & Features
+## 🌟 Core Features & Innovations
 
-### 🧠 1. Comprehensive Problem Curriculum (Blind 75 Suite)
-- **47+ Curated Problems**: Covering Arrays & Hashing, Two Pointers, Sliding Window, Stack, Binary Search, Linked Lists, Trees, 1D/2D Dynamic Programming, Intervals, Matrix, and Bit Manipulation.
-- **LaTeX Math Rendering & Markdown**: Formatted problem descriptions, mathematical constraints, and sample/hidden test cases.
-- **Topic & Difficulty Filtering**: Quick filter by NeetCode/Blind 75 categories (*Easy, Medium, Hard*).
+### 1. 🧠 Continuous-Learning RAG Failure Engine
+- **Failure-Augmented Pitfall Harvesting**: When a submission fails (Wrong Answer, Time Limit Exceeded, Runtime Error), the background worker analyzes the execution trace and embeds the failure signature into vector memory (`pgvector`).
+- **Dynamic Cluster Aggregation**: High-similarity failure patterns (>0.86 cosine similarity) are merged into recurring pitfall clusters with occurrence counts, continuously refining the judge's diagnostic precision.
+- **Non-Spoiling Socratic Failure Diagnostics**: Instead of giving away the answer, Submittery inspects the student's live editor code, compares it with canonical invariants and historical pitfall memory, and provides targeted guiding questions.
 
-### ⚡ 2. Distributed Asynchronous Code Evaluation
-- **Redis-Backed Task Queue**: Submissions are non-blocking and queued via Redis.
-- **Background Worker**: Evaluates candidate solutions against sample and hidden test suites.
-- **Sandboxed Execution Engine**: Enforces strict execution time limits and memory boundaries.
-- **Real-Time Verdict Streaming**: Instant feedback via WebSockets (`Accepted`, `Wrong Answer`, `Time Limit Exceeded`, `Memory Limit Exceeded`, `Runtime Error`, `Compilation Error`).
+### 2. 💡 3-Tier Grounded Socratic Hints
+- **Tier 1 (High-Level Intuition)**: Conceptual problem framing and pattern recognition (e.g., "Think about two-pointer sliding windows").
+- **Tier 2 (State Invariant & Math Relation)**: Core logical invariants without code syntax (e.g., "Maintain $\min(L[i], R[i]) - H[i]$").
+- **Tier 3 (Edge Cases & Boundaries)**: Specific boundary pitfalls and tricky edge cases tailored to what the student has typed so far.
 
-### 👥 3. Real-Time Pair Programming & Collab Chat
-- **Shareable Room Codes & Invite Links**: Instant room generation and joining.
-- **Live Collaborative Monaco Editor**: Real-time code sync, multi-peer presence, and live cursor position indicators.
-- **In-Session Collab Chat**: Dedicated in-room messaging drawer that activates during collaborative sessions and auto-hides when coding solo.
-- **Remote Execution Broadcasts**: Live testcase run broadcasting across all connected peers in the room.
+### 3. 🔍 Natural Language Semantic Problem Search
+- Search across the entire problem bank using algorithmic concepts and real-world descriptions (e.g., *"Find problems involving monotonic stack and water elevation"* or *"Dynamic programming on grids with obstacles"*).
 
-### 🤖 4. AI Mentor & Code Intelligence (Google Gemini)
-- **Time & Space Complexity Analyzer**: Big-O analysis of submitted or in-editor code.
-- **Intelligent Debug Hints**: Context-aware debugging suggestions without spoiling the solution.
-- **Automated Code Review**: Best practice feedback on readability, performance, and clean code principles.
-- **Interactive AI Assistant**: Ask questions directly within the workspace console.
+### 4. ⚡ Monaco Code-Aware AI Assistant
+- Live synchronization between the **Monaco Code Editor** and the AI Assistant. Students can highlight or edit code and ask direct contextual questions (e.g., *"Why is my loop on line 14 timing out?"*).
 
-### 🛡️ 5. Administrative Control Suite
-- **Manage Problems Console**: Live search, difficulty filtering, and view/preview actions.
-- **Problem Creation & Editing Modal**: Edit problem descriptions, starter templates, tags, time/memory limits, and dynamically add/delete test cases.
-- **Global Executions Stream**: Real-time audit log of the latest submissions across all users on the platform.
+### 5. 🛡️ High-Performance Micro-Container Sandbox
+- Untrusted student code executes inside ephemeral, non-networked Docker micro-containers with strict resource constraints:
+  - Memory hard-capped with swap disabled (`--memory=256m --memory-swap=256m`)
+  - CPU usage restricted (`--cpus=0.5`)
+  - Read-only root filesystem with isolated ephemeral workspace
+  - Non-privileged system user (`nobody:nogroup`) execution
+  - Sub-millisecond runtime and memory measurement
+
+### 6. 🌐 Real-Time Collaboration & WebSockets
+- Real-time submission queue streaming.
+- Live multi-user leaderboards and live test execution logs.
+- Google OAuth 2.0 & JWT authentication with fine-grained role-based access control (Admin / Student).
 
 ---
 
 ## 🏗️ System Architecture
 
 ```mermaid
-graph TD
-    Client[Web Frontend / Monaco Editor] -->|HTTP REST & WebSockets| FastAPIServer[FastAPI Web Server :8000]
-    FastAPIServer -->|Read/Write| Postgres[(PostgreSQL Database :5435)]
-    FastAPIServer -->|Enqueue Submissions| Redis[(Redis Queue :6385)]
-    FastAPIServer -->|AI Prompts| GeminiAI[Google Gemini API]
+flowchart TD
+    subgraph ClientLayer[Client / Frontend Layer]
+        Browser[Modern Browser / Monaco Editor]
+        Auth[Google OAuth / JWT Auth]
+        WSClient[WebSocket Real-time Client]
+    end
+
+    subgraph ReverseProxy[Reverse Proxy & Edge]
+        Nginx[Nginx Reverse Proxy :80/:443]
+    end
+
+    subgraph ApplicationLayer[FastAPI Application Services]
+        Backend[FastAPI Backend :8000\nAuth / Problems / Submissions / AI API]
+        CompilerService[Compiler Sandbox API :8002\nDocker-out-of-Docker Manager]
+        Worker[Background Worker / Judge Engine\nRedis Queue Consumer & RAG Harvester]
+    end
+
+    subgraph DataAndAILayer[Data, Cache & Vector Intelligence]
+        DB[(PostgreSQL 15 + pgvector :5432\nProblems / Submissions / Chunks / Pitfalls)]
+        Redis[(Redis 7 :6379\nQueue & Pub/Sub Leaderboard)]
+        Gemini[Google Gemini Flash\nText & Vector Embeddings API]
+    end
+
+    subgraph ExecutionSandbox[Isolated Micro-Sandbox]
+        DHost[Host Docker Engine]
+        Box1[Sandbox Container #1\nNo Net / Read-Only / CPU Capped]
+        Box2[Sandbox Container #2\nNon-Root / Memory Capped]
+    end
+
+    Browser --> Nginx
+    WSClient --> Nginx
+    Nginx --> Backend
+    Backend --> DB
+    Backend --> Redis
+    Backend --> Gemini
     
-    Worker[Submission Worker] -->|Pop Task| Redis
-    Worker -->|Execute Code| CompilerService[Compiler Sandbox :8002]
-    Worker -->|Update Status| Postgres
-    Worker -->|Notify Verdict| FastAPIServer
-    FastAPIServer -->|Push Verdict via WS| Client
+    Backend -->|Push Submission Job| Redis
+    Worker -->|Pop Job| Redis
+    Worker -->|POST /execute| CompilerService
+    CompilerService -->|DooD Socket| DHost
+    DHost --> Box1
+    DHost --> Box2
+    
+    Worker -->|Harvest Failures & Save Verdict| DB
+    Worker -->|Embed Failure Patterns| Gemini
+    Worker -->|Broadcast Verdict| Redis
+    Redis -->|WebSocket Event| Backend
+    Backend -->|Real-time Verdict Stream| WSClient
 ```
 
 ---
 
-## 🛠️ Technology Stack
+## 🗄️ Database & Vector Schema
 
-| Layer | Technology |
-|---|---|
-| **Backend API** | FastAPI (Python 3.11), SQLAlchemy, Pydantic v2, Uvicorn |
-| **Frontend** | Vanilla JavaScript, TailwindCSS, Monaco Editor, KaTeX, Marked.js |
-| **Database** | PostgreSQL 16 |
-| **Task Queue & Caching** | Redis 7 |
-| **AI Engine** | Google Gemini Generative AI SDK |
-| **Compiler Service** | Subprocess Sandbox Runner (Python 3, C++, Java) |
-| **Containerization** | Docker, Docker Compose |
+Submittery uses PostgreSQL 15 with the `pgvector` extension for storing structured data and high-dimensional semantic embeddings:
+
+```mermaid
+erDiagram
+    USERS ||--o{ SUBMISSIONS : submits
+    PROBLEMS ||--o{ TEST_CASES : contains
+    PROBLEMS ||--o{ SUBMISSIONS : evaluated_on
+    PROBLEMS ||--o{ PROBLEM_KNOWLEDGE_CHUNKS : has_canonical_chunks
+    PROBLEMS ||--o{ SUBMISSION_PITFALLS : accumulates_pitfall_memory
+
+    USERS {
+        uuid id PK
+        string email
+        string username
+        string role
+    }
+
+    PROBLEMS {
+        uuid id PK
+        string title
+        string slug
+        string difficulty
+        text description
+        float time_limit
+        int memory_limit
+    }
+
+    PROBLEM_KNOWLEDGE_CHUNKS {
+        uuid id PK
+        uuid problem_id FK
+        string chunk_type
+        string title
+        text content
+        vector embedding
+    }
+
+    SUBMISSION_PITFALLS {
+        uuid id PK
+        uuid problem_id FK
+        string verdict
+        text failed_testcase_summary
+        text code_pattern
+        text pitfall_summary
+        text socratic_guidance
+        vector embedding
+        int occurrence_count
+    }
+
+    SUBMISSIONS {
+        uuid id PK
+        uuid user_id FK
+        uuid problem_id FK
+        text code
+        string status
+        float runtime
+        int memory
+    }
+```
 
 ---
 
-## 🚀 Quickstart & Local Setup
+## 📂 Project Structure
+
+```
+.
+├── backend/                  # FastAPI Application
+│   ├── app/
+│   │   ├── api/              # REST & WebSocket Route Controllers
+│   │   ├── core/             # Security, JWT, Rate Limiters
+│   │   ├── models/           # SQLAlchemy & pgvector Database Models
+│   │   ├── services/         # AI Service & RAG Knowledge Engine
+│   │   ├── static/           # Single-Page App (HTML, Vanilla JS, CSS)
+│   │   └── main.py           # Application Entrypoint & Startup Seeds
+├── compiler_service/         # Ephemeral Micro-Sandbox Manager
+│   ├── sandbox/              # Sandbox Container Blueprint (Dockerfile & Runner)
+│   └── main.py               # Sandbox Execution API
+├── worker/                   # Background Async Judge & RAG Harvester
+│   └── main.py               # Redis Queue Worker Loop
+├── scripts/                  # Automation & DevOps Scripts
+│   ├── setup_ec2.sh          # One-Click AWS EC2 Provisioning
+│   ├── deploy.sh             # Zero-Downtime Application Reload
+│   └── backup_db.sh          # PostgreSQL Automated Backup Utility
+├── .github/workflows/        # Automated CI/CD Pipelines
+│   └── deploy.yml            # Continuous Deployment on Git Push
+├── docker-compose.yml        # Local Development Stack
+├── docker-compose.prod.yml   # Production Multi-Container Stack
+├── Dockerfile.backend        # Production Backend Container
+├── Dockerfile.worker         # Production Worker Container
+├── Dockerfile.compiler       # Production Compiler Container
+├── requirements.txt          # Unified Python Dependencies
+└── AWS_DEPLOYMENT_GUIDE.md   # Step-by-Step AWS Setup Guide
+```
+
+---
+
+## 🛠️ Local Development Setup
 
 ### 1. Prerequisites
 - [Git](https://git-scm.com/)
 - [Python 3.11+](https://www.python.org/)
-- [Docker & Docker Compose](https://www.docker.com/)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (ensure Docker daemon is running)
 
-### 2. Clone the Repository
+### 2. Clone and Configure Environment
 ```bash
-git clone https://github.com/b-harsha-v/Submittery-An-AI-online-judge.git
-cd Submittery-An-AI-online-judge
-```
+git clone https://github.com/b-harsha-v/Submittery-A-RAG-powered-Online-Code-Judge.git
+cd Submittery-A-RAG-powered-Online-Code-Judge
 
-### 3. Configure Environment Variables
-Copy `.env.example` to `.env` and fill in your details:
-```bash
+# Copy example environment file
 cp .env.example .env
 ```
-Key environment variables:
-```ini
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=submittery_db
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5435
 
-REDIS_HOST=localhost
-REDIS_PORT=6385
+Edit `.env` and supply your credentials:
+```env
+# Google Gemini API (Required for AI RAG Features)
+GEMINI_API_KEY=your_actual_gemini_api_key_here
 
-SECRET_KEY=your_super_secret_jwt_key
+# Google OAuth (Optional for Google Sign-In)
+GOOGLE_CLIENT_ID=your_google_oauth_client_id.apps.googleusercontent.com
+
+# Database & Redis Settings
+DATABASE_URL=postgresql+psycopg2://postgres:password@localhost:5435/submittery
+REDIS_URL=redis://localhost:6385/0
 COMPILER_SERVICE_URL=http://localhost:8002
-GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
-### 4. Start Database & Redis with Docker
+### 3. Start Database & Cache Containers
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
-*This starts PostgreSQL on port `5435` and Redis on port `6385`.*
+*Spins up PostgreSQL 15 with `pgvector` on port `5435` and Redis on port `6385`.*
 
-### 5. Setup Python Virtual Environment
+### 4. Create Virtual Environment & Install Dependencies
 ```bash
-# Create virtual environment
 python -m venv venv
-
-# Activate on Windows (PowerShell):
-venv\Scripts\Activate.ps1
-# Or on Linux/macOS:
+# On Windows (PowerShell):
+.\venv\Scripts\activate
+# On Linux / macOS:
 source venv/bin/activate
 
-# Install dependencies
-pip install -r backend/requirements.txt
-pip install -r compiler_service/requirements.txt
+pip install -r requirements.txt
 ```
 
-### 6. Initialize & Seed Database
+### 5. Launch the Services
+
+Open 3 terminal windows:
+
+**Terminal 1 — Compiler Sandbox Service:**
 ```bash
-python -m backend.app.init_db
+uvicorn compiler_service.main:app --host 0.0.0.0 --port 8002
 ```
-*This automatically seeds the 47 Blind 75 problems, default test cases, and default accounts.*
+
+**Terminal 2 — Background Worker & RAG Harvester:**
+```bash
+python -m worker.main
+```
+
+**Terminal 3 — FastAPI Backend & Web Server:**
+```bash
+uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Visit **`http://localhost:8000`** in your browser!
 
 ---
 
-## 💻 Running the Services Locally
+## ☁️ AWS Production Deployment & CI/CD
 
-To start the full stack, run the following **3 commands** in separate terminal tabs with the virtual environment activated:
+Submittery includes a zero-downtime, continuous deployment pipeline using **AWS EC2** and **GitHub Actions**.
 
-```powershell
-# Terminal 1: Start Main Web & WebSocket Server
-uvicorn backend.app.main:app --port 8000 --reload
+### Guarantees
+- **Data Persistence**: Database storage is bound to persistent Docker volumes backed by AWS EBS. Deployments will **never drop or erase your database**.
+- **Automated Deployments**: Every `git push` to `main` automatically triggers GitHub Actions to SSH into the AWS EC2 host and safely reload application containers.
 
-# Terminal 2: Start Compiler Sandbox Service
-uvicorn compiler_service.main:app --port 8002 --reload
+### Quick Deployment Steps
+1. **Launch EC2 Instance**: Ubuntu 24.04 LTS (`t3.medium` or `t3.small`), 30GB EBS storage. Open ports `22`, `80`, `443` in Security Group.
+2. **Initial Setup**:
+   ```bash
+   ssh -i your-key.pem ubuntu@<EC2_PUBLIC_IP>
+   git clone https://github.com/b-harsha-v/Submittery-A-RAG-powered-Online-Code-Judge.git
+   cd Submittery-A-RAG-powered-Online-Code-Judge
+   chmod +x scripts/*.sh
+   ./scripts/setup_ec2.sh
+   ```
+3. **Configure `.env`** on the server with your production secrets.
+4. **Add GitHub Secrets** (`AWS_HOST`, `AWS_USER`, `AWS_SSH_KEY`) under **Repository Settings -> Secrets -> Actions**.
 
-# Terminal 3: Start Asynchronous Evaluation Worker
-python worker/main.py
-```
-
-Open your browser and navigate to: **`http://localhost:8000`**
-
----
-
-## 🔑 Default Test Accounts
-
-| Role | Email | Password | Access Level |
-|---|---|---|---|
-| **Admin** | `admin@submittery.com` | `adminpass` | Full Platform & Problem Management |
-| **Standard User** | `user@submittery.com` | `userpass` | Problem Solving, Collab & Submissions |
+For full details and SSL domain setup, see [**AWS_DEPLOYMENT_GUIDE.md**](AWS_DEPLOYMENT_GUIDE.md).
 
 ---
 
-## 📁 Repository Directory Layout
+## 🧪 Testing & Verification
 
-```
-Submittery-An-AI-online-judge/
-├── backend/
-│   ├── app/
-│   │   ├── api/             # REST endpoints (auth, problems, submissions, AI, discussions, WS)
-│   │   ├── core/            # Security, rate limiters, middleware
-│   │   ├── models/          # SQLAlchemy Database Models
-│   │   ├── schemas/         # Pydantic Schemas & Validators
-│   │   ├── services/        # AI Service, Redis Queue, WebSocket Manager
-│   │   ├── static/          # Single-Page App UI (HTML, JS, CSS, Monaco Editor)
-│   │   ├── database.py      # Database session and engine setup
-│   │   ├── init_db.py       # Idempotent DB seeder for Blind 75 problems & users
-│   │   └── main.py          # FastAPI application entrypoint
-│   └── requirements.txt
-├── compiler_service/
-│   ├── sandbox/             # Subprocess runner, timeout & memory bounds
-│   ├── main.py              # Fast execution API endpoint
-│   └── requirements.txt
-├── worker/
-│   └── main.py              # Redis task consumer & result dispatcher
-├── docker-compose.yml       # PostgreSQL and Redis services
-├── .env.example             # Template environment variables
-└── README.md                # Project documentation
-```
+- **Submit Code**: Pick any problem (e.g. *Trapping Rain Water* or *Counting Bits*), write your solution in Monaco editor, and click **Submit**.
+- **Test Socratic Hints**: Click the **AI Assistant** tab and request Tier 1, Tier 2, or Tier 3 hints to see non-spoiling guidance grounded in canonical vectors.
+- **Test Failure Diagnostic**: Submit a faulty solution and click **RAG Failure Diagnostic** to inspect how the system references your exact code variables and historical community pitfalls.
+- **Test Semantic Search**: Type natural language problem concepts in the problem catalog search bar.
 
 ---
 
-## 📄 License
-This project is open-source and licensed under the [MIT License](LICENSE).
+## 📜 License & Acknowledgments
+
+This project is licensed under the MIT License.
+Built with ❤️ by **B Harsha Vardhan** using Google Gemini, FastAPI, and PostgreSQL `pgvector`.

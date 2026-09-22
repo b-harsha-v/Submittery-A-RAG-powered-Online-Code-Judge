@@ -434,9 +434,14 @@ async function checkAuth() {
 function updateUIForAuth() {
     const section = document.getElementById("header-auth-box");
     if (currentUser) {
+        let avatarSrc = currentUser.avatar_url || ('https://api.dicebear.com/7.x/bottts/svg?seed=' + encodeURIComponent(currentUser.username));
+        if (avatarSrc.startsWith('http%3A') || avatarSrc.startsWith('https%3A')) {
+            avatarSrc = decodeURIComponent(avatarSrc);
+        }
+
         section.innerHTML = `
             <div class="flex items-center space-x-3 bg-dark-200 border border-slate-800/80 px-3 py-1.5 rounded-xl">
-                <img src="${currentUser.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + currentUser.username}" class="h-6 w-6 rounded-full border border-slate-750 bg-slate-800">
+                <img src="${avatarSrc}" onerror="this.src='https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(currentUser.username)}'" class="h-6 w-6 rounded-full border border-slate-750 bg-slate-800">
                 <span class="text-xs font-semibold text-slate-300">${currentUser.username}</span>
                 <span class="text-[9px] uppercase px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-500 font-mono border border-brand-500/20">${currentUser.role}</span>
                 <button onclick="openSettingsModal()" class="text-slate-500 hover:text-brand-500 transition ml-2" title="Profile Settings">
@@ -453,7 +458,7 @@ function updateUIForAuth() {
         if (dashUser) dashUser.innerText = currentUser.username;
         const dashAvatar = document.getElementById("dash-avatar-container");
         if (dashAvatar) {
-            dashAvatar.innerHTML = `<img src="${currentUser.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + currentUser.username}" class="h-9 w-9 rounded-full bg-slate-800 border border-slate-700">`;
+            dashAvatar.innerHTML = `<img src="${avatarSrc}" onerror="this.src='https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(currentUser.username)}'" class="h-9 w-9 rounded-full bg-slate-800 border border-slate-700">`;
         }
     } else {
         section.innerHTML = `
@@ -793,6 +798,74 @@ function filterProblemsList() {
     renderProblemsTable();
 }
 
+function handleProblemSearchInput(e) {
+    if (e && e.key === "Enter") {
+        runSemanticSearch();
+        return;
+    }
+    renderProblemsTable();
+}
+
+async function runSemanticSearch() {
+    const input = document.getElementById("prob-search-input");
+    const query = input ? input.value.trim() : "";
+    if (!query) {
+        renderProblemsTable();
+        return;
+    }
+    
+    const tbody = document.getElementById("problems-tbody-list");
+    tbody.innerHTML = `<tr><td colspan="4" class="text-brand-400 text-center py-10"><i class="fa-solid fa-spinner animate-spin mr-2"></i>Searching problem concepts via RAG embeddings...</td></tr>`;
+    
+    try {
+        const results = await request("/ai/semantic-search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: query, limit: 10 })
+        });
+        
+        if (!results || results.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="text-slate-500 text-center py-10">No semantic matches found for "${query}".</td></tr>`;
+            return;
+        }
+        
+        tbody.innerHTML = results.map((p, idx) => {
+            let diffBadge = "text-brand-400 bg-brand-500/10 border-brand-500/20";
+            if (p.difficulty === "medium") diffBadge = "text-amber-400 bg-amber-500/10 border border-amber-500/20";
+            if (p.difficulty === "hard") diffBadge = "text-rose-400 bg-rose-500/10 border border-rose-500/20";
+            
+            const tagsHtml = (p.tags || []).map(t => `<span class="text-[11px] bg-slate-800 border border-slate-700/80 px-1.5 py-0.5 rounded text-slate-450 font-semibold">${t}</span>`).join(" ");
+            
+            const matchScore = p.similarity ? Math.round(p.similarity * 100) : null;
+            const scoreBadge = matchScore ? `<span class="ml-2 text-[10px] bg-brand-500/20 text-brand-300 border border-brand-500/30 px-1.5 py-0.5 rounded font-mono">${matchScore}% Match</span>` : '';
+            
+            return `
+                <tr class="border-b border-slate-850 hover:bg-slate-900/20 transition group">
+                    <td class="py-3 px-3">
+                        <div class="font-bold text-slate-200 group-hover:text-brand-400 transition text-sm flex items-center">
+                            <span>${p.title}</span>
+                            ${scoreBadge}
+                        </div>
+                        <div class="text-[11px] text-slate-400 mt-1 line-clamp-1 italic">${p.matched_concept || ''}</div>
+                    </td>
+                    <td class="py-3 px-3">
+                        <span class="text-[10px] uppercase font-bold px-2 py-0.5 border rounded ${diffBadge}">${p.difficulty}</span>
+                    </td>
+                    <td class="py-3 px-3 flex items-center flex-wrap gap-1.5">${tagsHtml}</td>
+                    <td class="py-3 px-3 text-right">
+                        <button onclick="openWorkspace('${p.slug}')" class="px-3.5 py-1 bg-slate-800 hover:bg-brand-500 hover:text-dark-300 text-slate-300 text-sm font-bold rounded-lg transition active:scale-95 border border-slate-700 hover:border-transparent">
+                            Solve
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+    } catch (e) {
+        console.error("Semantic search error:", e);
+        renderProblemsTable();
+    }
+}
+
 const neetcodeTopicTagMap = {
     "arrays-hashing": ["array", "hash-table", "prefix-sum"],
     "two-pointers": ["two-pointers"],
@@ -1114,10 +1187,16 @@ function resetConsoleWorkspace() {
         }
     }
     
-    document.getElementById("wbtn-ai-review").disabled = true;
-    document.getElementById("wbtn-ai-review").classList.add("text-slate-500");
-    document.getElementById("wbtn-ai-hints").disabled = true;
-    document.getElementById("wbtn-ai-hints").classList.add("text-slate-500");
+    const btnReview = document.getElementById("wbtn-ai-review");
+    if (btnReview) {
+        btnReview.disabled = true;
+        btnReview.classList.add("text-slate-500");
+    }
+    const btnHints = document.getElementById("wbtn-ai-hints");
+    if (btnHints) {
+        btnHints.disabled = true;
+        btnHints.classList.add("text-slate-500");
+    }
     
     lastSubmissionId = null;
     closeWebSocketSub();
@@ -1288,8 +1367,11 @@ function displayFinalVerdictWorkspace(data) {
     if (errorBlock) errorBlock.classList.add("hidden");
     if (errorText) errorText.innerText = "";
     
-    document.getElementById("wbtn-ai-review").disabled = false;
-    document.getElementById("wbtn-ai-review").classList.remove("text-slate-500");
+    const btnReview = document.getElementById("wbtn-ai-review");
+    if (btnReview) {
+        btnReview.disabled = false;
+        btnReview.classList.remove("text-slate-500");
+    }
     
     let colorClass = "text-red-400";
     let iconClass = "fa-solid fa-circle-xmark text-red-400";
@@ -1301,18 +1383,26 @@ function displayFinalVerdictWorkspace(data) {
         label += ` (${passedCases}/${totalCases} Cases Passed)`;
     }
     
+    const btnHints = document.getElementById("wbtn-ai-hints");
     if (status === "accepted") {
         colorClass = "text-brand-400";
         iconClass = "fa-solid fa-circle-check text-brand-400";
         setVerdictLabelWorkspace(label, colorClass, iconClass);
-        document.getElementById("wverdict-runtime").innerText = runtime ? `${runtime}s` : "--";
-        document.getElementById("wverdict-memory").innerText = memory ? `${(memory / 1024).toFixed(1)}MB` : "--";
-        // Disable debug hints on accepted submissions
-        document.getElementById("wbtn-ai-hints").disabled = true;
-        document.getElementById("wbtn-ai-hints").classList.add("text-slate-500");
+        const elRuntime = document.getElementById("wverdict-runtime");
+        const elMemory = document.getElementById("wverdict-memory");
+        if (elRuntime) elRuntime.innerText = runtime ? `${runtime}s` : "--";
+        if (elMemory) elMemory.innerText = memory ? `${(memory / 1024).toFixed(1)}MB` : "--";
+        
+        // Disable debug hints on accepted submissions if element exists
+        if (btnHints) {
+            btnHints.disabled = true;
+            btnHints.classList.add("text-slate-500");
+        }
     } else {
-        document.getElementById("wbtn-ai-hints").disabled = false;
-        document.getElementById("wbtn-ai-hints").classList.remove("text-slate-500");
+        if (btnHints) {
+            btnHints.disabled = false;
+            btnHints.classList.remove("text-slate-500");
+        }
         
         if (status === "wrong_answer") {
             colorClass = "text-amber-500";
@@ -1320,12 +1410,24 @@ function displayFinalVerdictWorkspace(data) {
         }
         
         setVerdictLabelWorkspace(label, colorClass, iconClass);
-        document.getElementById("wverdict-runtime").innerText = runtime ? `${runtime}s` : "--";
-        document.getElementById("wverdict-memory").innerText = memory ? `${(memory / 1024).toFixed(1)}MB` : "--";
+        const elRuntime = document.getElementById("wverdict-runtime");
+        const elMemory = document.getElementById("wverdict-memory");
+        if (elRuntime) elRuntime.innerText = runtime ? `${runtime}s` : "--";
+        if (elMemory) elMemory.innerText = memory ? `${(memory / 1024).toFixed(1)}MB` : "--";
         
         if (error && errorBlock && errorText) {
             errorBlock.classList.remove("hidden");
             errorText.innerText = error;
+        }
+    }
+    
+    // Reset RAG diagnostic banner
+    const ragBanner = document.getElementById("wrag-diagnostic-banner");
+    if (ragBanner) {
+        if (status !== "accepted") {
+            ragBanner.classList.remove("hidden");
+        } else {
+            ragBanner.classList.add("hidden");
         }
     }
     
@@ -1436,6 +1538,13 @@ async function triggerAIAction(action) {
         } else if (action === "hints") {
             if (!lastSubmissionId) return;
             endpoint = `/ai/debug-hints/${lastSubmissionId}`;
+        } else if (action === "rag-diagnose") {
+            endpoint = "/ai/diagnose-failure";
+            body = {
+                problem_id: currentProblem.id,
+                submission_id: lastSubmissionId,
+                code: window.editor ? window.editor.getValue() : ""
+            };
         } else if (action === "ask") {
             const input = document.getElementById("wai-chat-input");
             const question = input.value.trim();
@@ -1444,7 +1553,8 @@ async function triggerAIAction(action) {
             endpoint = "/ai/ask";
             body = {
                 question: question,
-                problem_id: currentProblem.id
+                problem_id: currentProblem.id,
+                code: window.editor ? window.editor.getValue() : ""
             };
             input.value = "";
         }
@@ -1459,6 +1569,44 @@ async function triggerAIAction(action) {
         
         setTimeout(formatMathFormulas, 100);
         
+    } catch (e) {
+        responseBox.innerHTML = `<div class="text-red-400 text-xs py-4"><i class="fa-solid fa-circle-exclamation mr-2"></i>AI Error: ${e.message}</div>`;
+    }
+}
+
+// Trigger Tiered Socratic Hints grounded in vector knowledge base
+async function triggerSocraticHint(tier) {
+    if (!currentProblem) return;
+    const responseBox = document.getElementById("wai-response-box");
+    switchConsoleTab("ai");
+    
+    const tierNames = { 1: "Tier 1: High-Level Intuition", 2: "Tier 2: State Invariant", 3: "Tier 3: Edge Cases" };
+    responseBox.innerHTML = `
+        <div class="flex items-center justify-center py-10 text-brand-400 text-xs">
+            <i class="fa-solid fa-spinner animate-spin text-sm mr-2"></i>
+            <span>Retrieving ${tierNames[tier] || `Tier ${tier}`} hint from vector knowledge base...</span>
+        </div>
+    `;
+    
+    try {
+        const data = await request("/ai/socratic-hint", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                problem_id: currentProblem.id,
+                code: window.editor.getValue(),
+                tier: tier
+            })
+        });
+        
+        responseBox.innerHTML = `
+            <div class="mb-2 pb-2 border-b border-slate-800 flex items-center justify-between text-xs text-brand-400 font-semibold">
+                <span><i class="fa-solid fa-lightbulb mr-1.5"></i>${data.title || `Tier ${tier} Socratic Hint`}</span>
+                <span class="text-[10px] text-slate-500 uppercase tracking-wider">Non-Spoiling RAG</span>
+            </div>
+            <div class="prose prose-invert text-sm max-w-none space-y-2 leading-relaxed font-sans select-text">${marked.parse(data.response)}</div>
+        `;
+        setTimeout(formatMathFormulas, 100);
     } catch (e) {
         responseBox.innerHTML = `<div class="text-red-400 text-xs py-4"><i class="fa-solid fa-circle-exclamation mr-2"></i>AI Error: ${e.message}</div>`;
     }

@@ -1,0 +1,41 @@
+name: Continuous Deployment to AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+      - v5
+      - master
+
+jobs:
+  deploy:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to AWS EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ${{ secrets.AWS_USER || 'ubuntu' }}
+          key: ${{ secrets.AWS_SSH_KEY }}
+          port: ${{ secrets.AWS_PORT || 22 }}
+          script: |
+            # Target project directory on EC2
+            PROJECT_DIR="${{ secrets.PROJECT_DIR || '$HOME/Submittery-An-AI-online-judge' }}"
+            
+            # If project directory doesn't exist, try fallback ~/submittery or clone
+            if [ ! -d "$PROJECT_DIR" ]; then
+              if [ -d "$HOME/submittery" ]; then
+                PROJECT_DIR="$HOME/submittery"
+              fi
+            fi
+            
+            echo "Navigating to ${PROJECT_DIR}..."
+            cd "${PROJECT_DIR}"
+            
+            # Make scripts executable and run deployment
+            chmod +x scripts/*.sh
+            ./scripts/deploy.sh

@@ -5,6 +5,7 @@ from .database import engine, Base, SessionLocal
 from .models.user import User, UserRole
 from .models.problem import Problem, TestCase, ProblemDifficulty
 from .security import hash_password
+from .services.rag_service import rag_service
 
 def init_database():
     print("Dropping existing tables...")
@@ -26,6 +27,10 @@ def seed_problem(db: Session, problem_obj: Problem, cases: list):
     print(f"[+] Seeded problem: {problem_obj.title}")
 
 def seed_data():
+    # Ensure tables and extensions exist
+    rag_service.init_db_extensions(SessionLocal())
+    Base.metadata.create_all(bind=engine)
+    
     db = SessionLocal()
     try:
         # Check and seed users
@@ -2245,6 +2250,9 @@ if __name__ == '__main__':
             TestCase(input="2\n3", expected_output="5", is_sample=True),
             TestCase(input="-1\n1", expected_output="0", is_sample=False)
         ])
+
+        print("[*] Initializing RAG Knowledge Base vectors (pgvector)...")
+        rag_service.seed_problem_knowledge_if_needed(db)
 
         print("[OK] Complete Blind 75 database sync finished successfully!")
     except Exception as e:

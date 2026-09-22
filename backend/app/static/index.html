@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Submittery v2 — AI-Powered Distributed Online Judge</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -422,7 +423,10 @@
                     <div class="flex flex-col sm:flex-row flex-grow max-w-2xl gap-3">
                         <div class="relative flex-grow">
                             <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
-                            <input id="prob-search-input" oninput="filterProblemsList()" type="text" placeholder="Search problems by name..." class="w-full pl-9 pr-4 py-1.5 text-sm bg-dark-300 border border-slate-800 rounded-lg focus:outline-none focus:border-brand-500 text-slate-200 transition">
+                            <input id="prob-search-input" oninput="handleProblemSearchInput()" type="text" placeholder="Search problems by name or concept (e.g. 'monotonic stack', 'topological sort')..." class="w-full pl-9 pr-24 py-1.5 text-sm bg-dark-300 border border-slate-800 rounded-lg focus:outline-none focus:border-brand-500 text-slate-200 transition">
+                            <button id="btn-semantic-search" onclick="runSemanticSearch()" class="absolute right-1.5 top-1 px-2.5 py-1 bg-brand-900/50 hover:bg-brand-800 text-brand-300 border border-brand-500/30 rounded text-[10px] font-bold uppercase transition" title="Search using RAG semantic embeddings">
+                                <i class="fa-solid fa-brain mr-1 text-[9px]"></i>RAG Search
+                            </button>
                         </div>
                         <div class="flex items-center space-x-2 shrink-0">
                             <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">NeetCode Topic:</label>
@@ -840,6 +844,17 @@
                                     <pre id="wjudge-error-text" class="text-xs font-mono text-red-300 whitespace-pre-wrap overflow-x-auto bg-black/30 p-3 rounded border border-red-500/10"></pre>
                                 </div>
 
+                                <div id="wrag-diagnostic-banner" class="hidden glass-card p-3 rounded-xl bg-brand-950/20 border border-brand-500/30 flex items-center justify-between">
+                                    <div class="flex items-center space-x-2.5 text-xs text-brand-300">
+                                        <i class="fa-solid fa-brain-circuit text-brand-400 text-sm"></i>
+                                        <span>Submission failed. Run <b>RAG Diagnostic</b> to inspect canonical invariants & failure memory.</span>
+                                    </div>
+                                    <button onclick="triggerAIAction('rag-diagnose')" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition shadow-md shadow-brand-900/30 flex items-center space-x-1.5 shrink-0">
+                                        <i class="fa-solid fa-sparkles text-[10px]"></i>
+                                        <span>Diagnose with RAG</span>
+                                    </button>
+                                </div>
+
                                 <!-- LeetCode-style test cases container -->
                                 <div id="wconsole-testcases-container" class="space-y-4 pt-2"></div>
                             </div>
@@ -849,15 +864,24 @@
                         <div id="wconsole-content-ai" class="hidden h-full flex flex-col space-y-4">
                             <div class="flex items-center justify-between glass-card p-2.5 rounded-xl border-slate-800 shrink-0">
                                 <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider"><i class="fa-solid fa-microchip mr-1.5 text-brand-500"></i>AI Helpers:</span>
-                                <div class="flex space-x-1.5">
-                                    <button onclick="triggerAIAction('complexity')" class="px-2.5 py-1 bg-slate-850 hover:bg-slate-800 text-slate-300 text-[9px] font-bold uppercase tracking-wider rounded transition border border-slate-800">
-                                        Analyze Complexity
+                                <div class="flex flex-wrap gap-1.5">
+                                    <button onclick="triggerAIAction('complexity')" class="px-2 py-1 bg-slate-850 hover:bg-slate-800 text-slate-300 text-[9px] font-bold uppercase tracking-wider rounded transition border border-slate-800">
+                                        Complexity
                                     </button>
-                                    <button id="wbtn-ai-review" onclick="triggerAIAction('review')" class="px-2.5 py-1 bg-slate-850 hover:bg-slate-800 text-slate-350 text-[9px] font-bold uppercase tracking-wider rounded transition border border-slate-800" disabled>
-                                        Code Review
+                                    <button id="wbtn-ai-review" onclick="triggerAIAction('review')" class="px-2 py-1 bg-slate-850 hover:bg-slate-800 text-slate-350 text-[9px] font-bold uppercase tracking-wider rounded transition border border-slate-800" disabled>
+                                        Review
                                     </button>
-                                    <button id="wbtn-ai-hints" onclick="triggerAIAction('hints')" class="px-2.5 py-1 bg-slate-850 hover:bg-slate-800 text-slate-355 text-[9px] font-bold uppercase tracking-wider rounded transition border border-slate-800" disabled>
-                                        Get Hints
+                                    <button id="wbtn-ai-rag-diagnose" onclick="triggerAIAction('rag-diagnose')" class="px-2.5 py-1 bg-brand-900/40 hover:bg-brand-800/60 text-brand-300 text-[9px] font-bold uppercase tracking-wider rounded transition border border-brand-500/30">
+                                        <i class="fa-solid fa-brain-circuit mr-1 text-[9px]"></i>RAG Diagnostic
+                                    </button>
+                                    <button id="wbtn-ai-hints" onclick="triggerSocraticHint(1)" class="px-2 py-1 bg-slate-850 hover:bg-slate-800 text-slate-300 text-[9px] font-bold rounded transition border border-slate-800" title="Tier 1: High-level Intuition">
+                                        Tier 1 Hint
+                                    </button>
+                                    <button onclick="triggerSocraticHint(2)" class="px-2 py-1 bg-slate-850 hover:bg-slate-800 text-slate-300 text-[9px] font-bold rounded transition border border-slate-800" title="Tier 2: State & Invariant">
+                                        Tier 2 Hint
+                                    </button>
+                                    <button onclick="triggerSocraticHint(3)" class="px-2 py-1 bg-slate-850 hover:bg-slate-800 text-slate-300 text-[9px] font-bold rounded transition border border-slate-800" title="Tier 3: Edge Cases">
+                                        Tier 3 Hint
                                     </button>
                                 </div>
                             </div>

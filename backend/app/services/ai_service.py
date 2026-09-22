@@ -67,24 +67,28 @@ class AIService:
                 print(f"[*] Available Text Models: {self.valid_gen_models}")
                 
                 preferred = [
+                    'gemini-flash-latest',
+                    'gemini-flash-lite-latest',
                     'gemini-2.0-flash',
                     'gemini-2.0-flash-lite',
-                    'gemini-2.0-flash-lite-preview-02-05',
                     'gemini-1.5-flash',
                     'gemini-1.5-flash-latest',
-                    'gemini-1.5-flash-8b',
-                    'gemini-1.5-pro',
-                    'gemini-1.5-pro-latest',
-                    'gemini-2.0-flash-exp'
+                    'gemini-3.5-flash',
+                    'gemini-3.7-flash',
+                    'gemini-3.5-flash-lite',
+                    'gemini-pro-latest',
+                    'gemini-1.5-pro'
                 ]
                 for p in preferred:
                     if p in self.valid_gen_models:
                         self.default_model = p
                         break
                 if not self.default_model and self.valid_gen_models:
-                    self.default_model = self.valid_gen_models[0]
+                    # Filter for gemini models before gemma
+                    gemini_mods = [m for m in self.valid_gen_models if m.startswith("gemini-") and "image" not in m]
+                    self.default_model = gemini_mods[0] if gemini_mods else self.valid_gen_models[0]
                 if self.valid_embed_models:
-                    self.embed_model = 'text-embedding-004' if 'text-embedding-004' in self.valid_embed_models else self.valid_embed_models[0]
+                    self.embed_model = 'gemini-embedding-001' if 'gemini-embedding-001' in self.valid_embed_models else ('text-embedding-004' if 'text-embedding-004' in self.valid_embed_models else self.valid_embed_models[0])
                 print(f"[*] Connected to Google Gemini! Selected Text Model: '{self.default_model}' (Embeddings: '{self.embed_model}')")
             else:
                 err_msg = resp.text
@@ -99,26 +103,28 @@ class AIService:
     def generate_response(self, prompt: str, system_instruction: str = None) -> str:
         """
         Generates content from Gemini or falls back to mock responses.
+        Filters out raw thought/reasoning tokens for clean presentation.
         """
         if self.is_active():
             candidates = []
             if self.default_model:
                 candidates.append(self.default_model)
             if hasattr(self, "valid_gen_models") and self.valid_gen_models:
+                # Prioritize gemini over gemma
+                gemini_mods = [m for m in self.valid_gen_models if m.startswith("gemini-") and "image" not in m]
+                candidates.extend(gemini_mods)
                 candidates.extend(self.valid_gen_models)
             candidates.extend([
+                'gemini-flash-latest',
                 'gemini-2.0-flash',
-                'gemini-2.0-flash-lite',
                 'gemini-1.5-flash',
-                'gemini-1.5-flash-latest',
-                'gemini-1.5-flash-8b',
-                'gemini-1.5-pro'
+                'gemini-flash-lite-latest'
             ])
             
             seen = set()
             unique_candidates = [
                 c for c in candidates 
-                if not (c in seen or seen.add(c)) and not any(bad in c.lower() for bad in ["tts", "audio", "imagen", "veo", "gemini-2.5"])
+                if not (c in seen or seen.add(c)) and not any(bad in c.lower() for bad in ["tts", "audio", "imagen", "veo", "gemini-2.5", "image"])
             ]
             
             last_err = None
@@ -127,26 +133,54 @@ class AIService:
                 "Content-Type": "application/json"
             }
             
-            full_prompt = f"{system_instruction}\n\n{prompt}" if system_instruction else prompt
-            
             for model_name in unique_candidates:
                 for api_ver in ['v1beta', 'v1']:
                     try:
                         url = f"https://generativelanguage.googleapis.com/{api_ver}/models/{model_name}:generateContent"
                         payload = {
-                            "contents": [{"parts": [{"text": full_prompt}]}]
+                            "contents": [{"parts": [{"text": prompt}]}],
+                            "generationConfig": {
+                                "temperature": 0.4
+                            }
                         }
+                        if system_instruction:
+                            payload["systemInstruction"] = {
+                                "parts": [{"text": system_instruction}]
+                            }
                         
                         resp = httpx.post(url, headers=headers, params={"key": self.api_key}, json=payload, timeout=35.0)
+                        
+                        # If systemInstruction was rejected on older model endpoint, retry with merged prompt
+                        if resp.status_code == 400 and system_instruction:
+                            payload_fallback = {
+                                "contents": [{"parts": [{"text": f"SYSTEM INSTRUCTION:\n{system_instruction}\n\nUSER PROMPT:\n{prompt}"}]}],
+                                "generationConfig": {"temperature": 0.4}
+                            }
+                            resp = httpx.post(url, headers=headers, params={"key": self.api_key}, json=payload_fallback, timeout=35.0)
+
                         if resp.status_code == 200:
                             res_data = resp.json()
                             candidates_list = res_data.get("candidates", [])
                             if candidates_list:
                                 content = candidates_list[0].get("content", {})
                                 parts = content.get("parts", [])
-                                if parts:
+                                
+                                # Filter out thinking parts
+                                clean_parts = []
+                                for p in parts:
+                                    if p.get("thought", False):
+                                        continue
+                                    txt = p.get("text", "")
+                                    if txt:
+                                        clean_parts.append(txt)
+                                
+                                if clean_parts:
                                     self.default_model = model_name
-                                    return parts[0].get("text", "")
+                                    final_text = "".join(clean_parts).strip()
+                                    # Strip any inline thinking tags if present
+                                    if "</thought>" in final_text:
+                                        final_text = final_text.split("</thought>", 1)[1].strip()
+                                    return final_text
                         else:
                             last_err = f"HTTP {resp.status_code} ({model_name}, {api_ver}): {resp.text}"
                     except Exception as e:
@@ -238,11 +272,13 @@ Explain what is causing this issue and provide 2-3 progressive hints. Again, do 
 """
         return self.generate_response(prompt, system)
 
-    def answer_question(self, query: str, problem: Problem, history: list = None) -> str:
+    def answer_question(self, query: str, problem: Problem, code: str = None, history: list = None) -> str:
         """
-        RAG-grounded QA. Injects problem description, constraints, and editorials.
+        RAG-grounded QA. Injects problem description, constraints, editorials, and the student's current code in the editor.
         """
-        system = "You are a computer science teaching assistant. Answer the student's question, grounding your response strictly in the provided Problem Context. Do not hallucinate algorithms."
+        system = "You are a computer science teaching assistant. Answer the student's question, grounding your response strictly in the provided Problem Context and their currently written code. Do not output raw drafting notes or thoughts."
+        
+        code_section = f"\nSTUDENT'S CURRENT CODE IN EDITOR:\n```python\n{code}\n```\n" if code and code.strip() else ""
         
         context = f"""PROBLEM CONTEXT:
 Title: {problem.title}
@@ -250,7 +286,7 @@ Difficulty: {problem.difficulty.value if hasattr(problem.difficulty, 'value') el
 Description:
 {problem.description}
 Tags: {problem.tags}
-"""
+{code_section}"""
         prompt = f"""{context}
 
 Student Question: {query}

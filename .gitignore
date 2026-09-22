@@ -9,10 +9,15 @@ venv/
 ENV/
 env/
 
-# Environment variables & secrets
+# Environment variables & secrets (NEVER COMMIT)
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.crt
+id_rsa
+id_rsa.pub
 
 # Database files & logs
 *.db
@@ -22,14 +27,21 @@ env/
 .system_generated/
 tasks/
 
+# Scratch & Temporary Run mounts
+/tmp/submittery_runs/
+scratch/
+submittery_backups/
+
 # Antigravity agents custom directories
 .gemini/
 brain/
 .agents/
 
-# IDE configurations
+# IDE configurations & OS files
 .vscode/
 .idea/
 *.suo
 *.sln
 *.swp
+.DS_Store
+Thumbs.db
