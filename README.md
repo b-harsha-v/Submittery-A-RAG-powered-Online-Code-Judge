@@ -1,12 +1,15 @@
 # 🚀 Submittery: A RAG-Powered AI Online Judge & Pair-Programming Platform
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-http%3A%2F%2F51.21.170.65%3A8000-brightgreen?style=for-the-badge&logo=google-cloud)](http://51.21.170.65:8000/)
 ![Submittery Banner](https://img.shields.io/badge/Submittery-v5.0-6366f1?style=for-the-badge&logo=codeforces&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110.0-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL_15-pgvector-336791?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Google Gemini](https://img.shields.io/badge/Google_Gemini-Flash_%26_Embeddings-4285F4?style=for-the-badge&logo=google&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Sandbox_Isolation-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![AWS](https://img.shields.io/badge/AWS-EC2_%26_CI%2FCD-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-EC2_%26_Live-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white)
 
+> 🔗 **Live Deployment**: **[http://51.21.170.65:8000/](http://51.21.170.65:8000/)**
+> 
 > **Submittery** is a next-generation competitive programming judge and collaborative coding platform. Unlike traditional static judges that only return raw verdicts, Submittery integrates an **asynchronous, continuous-learning Retrieval-Augmented Generation (RAG)** knowledge engine grounded in PostgreSQL (`pgvector`) and Google Gemini. It dynamically harvests community failure patterns, provides tiered Socratic hints without spoiling solutions, and conducts deep code-aware failure diagnostics in real time.
 
 ---
