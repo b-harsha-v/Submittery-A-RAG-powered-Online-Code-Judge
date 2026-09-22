@@ -179,29 +179,18 @@ erDiagram
 │   └── main.py               # Sandbox Execution API
 ├── worker/                   # Background Async Judge & RAG Harvester
 │   └── main.py               # Redis Queue Worker Loop
-├── scripts/                  # Automation & DevOps Scripts
-│   ├── setup_ec2.sh          # One-Click AWS EC2 Provisioning
-│   ├── deploy.sh             # Zero-Downtime Application Reload
-│   └── backup_db.sh          # PostgreSQL Automated Backup Utility
-├── .github/workflows/        # Automated CI/CD Pipelines
-│   └── deploy.yml            # Continuous Deployment on Git Push
-├── docker-compose.yml        # Local Development Stack
-├── docker-compose.prod.yml   # Production Multi-Container Stack
-├── Dockerfile.backend        # Production Backend Container
-├── Dockerfile.worker         # Production Worker Container
-├── Dockerfile.compiler       # Production Compiler Container
-├── requirements.txt          # Unified Python Dependencies
-└── AWS_DEPLOYMENT_GUIDE.md   # Step-by-Step AWS Setup Guide
+├── docker-compose.yml        # PostgreSQL (pgvector) & Redis Infrastructure
+└── requirements.txt          # Unified Python Dependencies
 ```
 
 ---
 
-## 🛠️ Local Development Setup
+## 🛠️ Setup & Running Guide
 
 ### 1. Prerequisites
 - [Git](https://git-scm.com/)
 - [Python 3.11+](https://www.python.org/)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (ensure Docker daemon is running)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) or Docker Engine (ensure Docker daemon is running)
 
 ### 2. Clone and Configure Environment
 ```bash
@@ -230,7 +219,7 @@ COMPILER_SERVICE_URL=http://localhost:8002
 ```bash
 docker compose up -d
 ```
-*Spins up PostgreSQL 15 with `pgvector` on port `5435` and Redis on port `6385`.*
+*Spins up PostgreSQL 15 with `pgvector` on port `5435` and Redis on port `6385` with persistent data volumes.*
 
 ### 4. Create Virtual Environment & Install Dependencies
 ```bash
@@ -245,7 +234,7 @@ pip install -r requirements.txt
 
 ### 5. Launch the Services
 
-Open 3 terminal windows:
+Open 3 terminal windows (or run with process managers like `tmux` / `systemd` / `supervisord`):
 
 **Terminal 1 — Compiler Sandbox Service:**
 ```bash
@@ -266,28 +255,38 @@ Visit **`http://localhost:8000`** in your browser!
 
 ---
 
-## ☁️ AWS Production Deployment & CI/CD
+## ☁️ Running on AWS EC2
 
-Submittery includes a zero-downtime, continuous deployment pipeline using **AWS EC2** and **GitHub Actions**.
+To host Submittery on an **AWS EC2 Ubuntu Instance** (e.g. `t3.small` / `t3.medium`):
 
-### Guarantees
-- **Data Persistence**: Database storage is bound to persistent Docker volumes backed by AWS EBS. Deployments will **never drop or erase your database**.
-- **Automated Deployments**: Every `git push` to `main` automatically triggers GitHub Actions to SSH into the AWS EC2 host and safely reload application containers.
-
-### Quick Deployment Steps
-1. **Launch EC2 Instance**: Ubuntu 24.04 LTS (`t3.medium` or `t3.small`), 30GB EBS storage. Open ports `22`, `80`, `443` in Security Group.
-2. **Initial Setup**:
+1. **Install Docker & Python**:
    ```bash
-   ssh -i your-key.pem ubuntu@<EC2_PUBLIC_IP>
+   sudo apt-get update && sudo apt-get install -y docker.io docker-compose python3-pip python3-venv git
+   sudo usermod -aG docker $USER
+   ```
+2. **Clone & Configure**:
+   ```bash
    git clone https://github.com/b-harsha-v/Submittery-A-RAG-powered-Online-Code-Judge.git
    cd Submittery-A-RAG-powered-Online-Code-Judge
-   chmod +x scripts/*.sh
-   ./scripts/setup_ec2.sh
+   cp .env.example .env
+   # Add your GEMINI_API_KEY to .env
    ```
-3. **Configure `.env`** on the server with your production secrets.
-4. **Add GitHub Secrets** (`AWS_HOST`, `AWS_USER`, `AWS_SSH_KEY`) under **Repository Settings -> Secrets -> Actions**.
+3. **Start Persistent PostgreSQL + Redis**:
+   ```bash
+   docker compose up -d
+   ```
+4. **Install Requirements & Run Services**:
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
 
-For full details and SSL domain setup, see [**AWS_DEPLOYMENT_GUIDE.md**](AWS_DEPLOYMENT_GUIDE.md).
+   # Start the 3 services in background / tmux / systemd
+   uvicorn compiler_service.main:app --host 0.0.0.0 --port 8002 &
+   python3 -m worker.main &
+   uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 &
+   ```
+5. Open **Port 8000** (or Port 80 via Nginx reverse proxy) in your EC2 Security Group.
 
 ---
 
